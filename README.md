@@ -2,11 +2,12 @@
 
 This repository contains a simple script to download your payslip
 attachments from Gmail and rename them using a date found in the email
-body.
+body. After downloading, the script marks the processed emails as read.
 
 ## Usage
 
-1. Create a Google Cloud project and enable the **Gmail API**.
+1. Create a Google Cloud project and enable the **Gmail API** with
+   permission to modify messages.
 2. Download your OAuth client credentials as `credentials.json` and place
    it in the repository directory.
 3. Install Python dependencies:

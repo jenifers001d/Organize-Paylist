@@ -29,8 +29,8 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 
-# Readonly access is sufficient for downloading attachments
-SCOPES = ["https://www.googleapis.com/auth/gmail.readonly"]
+# Modify access is required to mark messages as read
+SCOPES = ["https://www.googleapis.com/auth/gmail.modify"]
 
 
 def get_gmail_service():
@@ -68,10 +68,10 @@ def extract_date_range(text: str) -> tuple[str, str] | None:
 
 
 def get_message_body(payload: dict) -> str:
-    """Decode the plain text part of an email payload."""
+    """Decode the HTML part of an email payload."""
     if "parts" in payload:
         for part in payload["parts"]:
-            if part.get("mimeType") == "text/plain" and part.get("body", {}).get(
+            if part.get("mimeType") == "text/html" and part.get("body", {}).get(
                 "data"
             ):
                 data = part["body"]["data"]
@@ -126,6 +126,13 @@ def download_payslips(
             data = base64.urlsafe_b64decode(attachment["data"])
             Path(save_name).write_bytes(data)
             print(f"Saved {save_name}")
+
+        # Mark the message as read
+        service.users().messages().modify(
+            userId="me",
+            id=msg["id"],
+            body={"removeLabelIds": ["UNREAD"]},
+        ).execute()
 
 
 if __name__ == "__main__":
