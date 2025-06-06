@@ -1,7 +1,8 @@
 """Download and rename payslip PDFs from Gmail.
 
-This script searches for Gmail messages containing your payslip and
-saves the attachment as "payslip_YYYY-MM-DD.pdf" where the date is
+This script searches for unread Gmail messages with a subject like
+"Payslip for Zhu-Rong Zheng for Week ending" and saves the PDF
+attachment as ``PaySlip YYYYMMDD - YYYYMMDD.pdf``. The two dates are
 extracted from the email body text.
 
 Setup:
@@ -20,6 +21,7 @@ from __future__ import annotations
 import os
 import base64
 import re
+from datetime import datetime
 from pathlib import Path
 
 from google.auth.transport.requests import Request
@@ -51,13 +53,18 @@ def get_gmail_service():
     return build("gmail", "v1", credentials=creds)
 
 
-def extract_date(text: str) -> str | None:
-    """Return YYYY-MM-DD string found in text or None."""
-    # Adjust the regex to match your payslip email format
-    match = re.search(r"(\d{4}-\d{2}-\d{2})", text)
-    if match:
-        return match.group(1)
-    return None
+def extract_date_range(text: str) -> tuple[str, str] | None:
+    """Return start and end dates as YYYYMMDD strings found in text or None."""
+    pattern = r"(\d{1,2} [A-Za-z]+ \d{4})\s*[–-]\s*(\d{1,2} [A-Za-z]+ \d{4})"
+    match = re.search(pattern, text)
+    if not match:
+        return None
+    try:
+        start = datetime.strptime(match.group(1), "%d %B %Y").strftime("%Y%m%d")
+        end = datetime.strptime(match.group(2), "%d %B %Y").strftime("%Y%m%d")
+    except ValueError:
+        return None
+    return start, end
 
 
 def get_message_body(payload: dict) -> str:
@@ -78,7 +85,9 @@ def get_message_body(payload: dict) -> str:
     return ""
 
 
-def download_payslips(query: str = "subject:payslip") -> None:
+def download_payslips(
+    query: str = "is:unread subject:'Payslip for Zhu-Rong Zheng for Week ending'"
+) -> None:
     service = get_gmail_service()
 
     results = service.users().messages().list(userId="me", q=query).execute()
@@ -93,7 +102,12 @@ def download_payslips(query: str = "subject:payslip") -> None:
         )
 
         body_text = get_message_body(msg_detail["payload"])
-        date_str = extract_date(body_text) or "unknown-date"
+        date_range = extract_date_range(body_text)
+        if not date_range:
+            save_name = "PaySlip_unknown.pdf"
+        else:
+            start, end = date_range
+            save_name = f"PaySlip {start} - {end}.pdf"
 
         for part in msg_detail["payload"].get("parts", []):
             filename = part.get("filename")
@@ -110,7 +124,6 @@ def download_payslips(query: str = "subject:payslip") -> None:
                 .execute()
             )
             data = base64.urlsafe_b64decode(attachment["data"])
-            save_name = f"payslip_{date_str}.pdf"
             Path(save_name).write_bytes(data)
             print(f"Saved {save_name}")
 
