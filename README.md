@@ -15,7 +15,8 @@ body. After downloading, the script marks the processed emails as read.
    ```bash
    pip install --upgrade google-api-python-client google-auth-httplib2 google-auth-oauthlib
    ```
-4. Run the script:
+4. If this is not the first run, `token.json` may be expired. Delete `token.json`.
+5. Run the script:
 
    ```bash
    python download_payslip.py
